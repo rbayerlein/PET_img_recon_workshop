@@ -10,16 +10,18 @@ import matplotlib.pyplot as plt
 from skimage.data import shepp_logan_phantom
 from skimage.transform import resize, radon, iradon
 from scatter_models import make_scatter_blur
+from aux import line_profile_at_height
 
 ### USER PARAMETERS ###
 total_counts   = 50_000_000         # total expected counts in scan
 randoms_frac   = 0.15               # X% randoms fraction
 scatter_frac   = 0.25               # X% scatter fraction
 
-cnt_MC = 10_000_000
+cnt_MC = 1_000_000
 
 n_iter = 200
 
+print_img_to_file = True
 #######################
 
 # ----------------------------
@@ -65,7 +67,9 @@ def make_angled_randoms(shape):
 
 # --- create phantom ---
 img_hi = shepp_logan_phantom().astype(np.float32)
-
+offset_value = 1e-3
+sl_offset = np.full((N0, N0), offset_value, np.float32)
+img_hi = img_hi + sl_offset
 # μ-map: inside phantom = water, outside = 0
 mu_map_hi = np.zeros_like(img_hi, dtype=np.float32).copy()
 mu_map_hi[img_hi > 0] = mu_water_cm
@@ -106,7 +110,7 @@ sig_shape = np.clip(sino_act * T, 0, None)
 # Allocate counts between signal and randoms and scatters
 sig_counts = total_counts * (1.0 - randoms_frac - scatter_frac)
 rnd_counts = total_counts * randoms_frac
-sct_counts = total_counts * scatter_frac
+sct_counts = (total_counts - rnd_counts) * scatter_frac
 
 # -------- RANDOMS --------
 rnd_shape = make_uniform_randoms(sig_shape.shape)  
@@ -211,3 +215,17 @@ plt.tight_layout(); plt.show()
 
 print("Observed randoms fraction in y:", y_rnd.sum()/y.sum())
 print("Observed scatter fraction in y:", y_sct_scaled.sum()/y.sum())
+
+if print_img_to_file:
+    norm_by_mean(recon_SC_est).astype(np.float32).tofile("output/recon_SC_est.bin")
+
+profile_act = line_profile_at_height(norm_by_mean(act),  N/2, 20, 80)
+profile_nonSC = line_profile_at_height(norm_by_mean(recon_noSC), N/2, 20, 80)
+profile_True_SC = line_profile_at_height(norm_by_mean(recon_SC_true),  N/2, 20, 80)
+profile_SC = line_profile_at_height(norm_by_mean(recon_SC_est),  N/2, 20, 80)
+
+plt.plot(profile_act, label='ground truth')
+plt.plot(profile_nonSC, label='non SC')
+plt.plot(profile_SC, label='SC (estimator)')
+plt.legend()
+plt.tight_layout(); plt.show()
