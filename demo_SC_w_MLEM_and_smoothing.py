@@ -21,7 +21,7 @@ randoms_frac   = 0.15               # X% randoms fraction
 scatter_frac   = 0.25              # X% scatter fraction
 
 cnt_MC = 1_000_000
-sigma=(2.0, 1.50)                    # sinogram smoothing parameters (radial, angular)
+sigma=(8.0, 5.50)                    # sinogram smoothing parameters (radial, angular)
 
 n_iter = 200
 
@@ -292,5 +292,6 @@ profile_SC = line_profile_at_height(norm_by_mean(recon_SC_est),  N/2, 20, 80)
 plt.plot(profile_act, label='ground truth')
 plt.plot(profile_nonSC, label='non SC')
 plt.plot(profile_SC, label='SC (estimator)')
+plt.ylim(-0.01,0.3)
 plt.legend()
 plt.tight_layout(); plt.show()

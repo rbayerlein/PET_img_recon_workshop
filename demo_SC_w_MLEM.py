@@ -227,5 +227,7 @@ profile_SC = line_profile_at_height(norm_by_mean(recon_SC_est),  N/2, 20, 80)
 plt.plot(profile_act, label='ground truth')
 plt.plot(profile_nonSC, label='non SC')
 plt.plot(profile_SC, label='SC (estimator)')
+plt.ylim(-0.01,0.3)
+
 plt.legend()
 plt.tight_layout(); plt.show()

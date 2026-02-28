@@ -230,5 +230,7 @@ profile_RC = line_profile_at_height(norm_by_mean(recon_RC_est),  N/2, 20, 80)
 plt.plot(profile_act, label='ground truth')
 plt.plot(profile_nonRC, label='non RC')
 plt.plot(profile_RC, label='RC (estimator)')
+plt.ylim(-0.01,0.3)
+
 plt.legend()
 plt.tight_layout(); plt.show()
