@@ -11,7 +11,7 @@ from skimage.data import shepp_logan_phantom
 from skimage.transform import resize, radon, iradon
 from scipy.ndimage import gaussian_filter
 from scatter_models import make_scatter_blur
-from aux import line_profile_at_height
+from aux_functions import line_profile_at_height
 
 # from scatter_models import make_scatter_tails, make_scatter_iterative_from_image
 

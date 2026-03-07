@@ -10,7 +10,7 @@ import matplotlib.pyplot as plt
 from skimage.data import shepp_logan_phantom
 from skimage.transform import resize, radon, iradon
 from scatter_models import make_scatter_blur
-from aux import line_profile_at_height
+from aux_functions import line_profile_at_height
 
 ### USER PARAMETERS ###
 total_counts   = 50_000_000         # total expected counts in scan
