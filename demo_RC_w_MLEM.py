@@ -9,10 +9,11 @@ import numpy as np
 import matplotlib.pyplot as plt
 from skimage.data import shepp_logan_phantom
 from skimage.transform import resize, radon, iradon
+from aux import line_profile_at_height
 
 ### USER PARAMETERS ###
 total_counts   = 55_000_000         # total expected counts in scan
-randoms_frac   = 0.25               # X% randoms fraction
+randoms_frac   = 0.4               # X% randoms fraction
 n_iter = 200
 
 #######################
@@ -50,7 +51,7 @@ def make_angled_randoms(shape):
     H, W = shape
     cols = np.linspace(0, 1, W, dtype=np.float32)
     r = np.tile(0.5 + 0.5*np.sin(2*np.pi*cols), (H,1)).astype(np.float32)
-    r -= r.min(); 
+    r -= r.min();
     return r + 1e-6
 
 # ----------------------------
@@ -59,6 +60,9 @@ def make_angled_randoms(shape):
 
 # --- create phantom ---
 img_hi = shepp_logan_phantom().astype(np.float32)
+offset_value = 1e-3
+sl_offset = np.full((N0, N0), offset_value, np.float32)
+img_hi = img_hi + sl_offset
 
 # μ-map: inside phantom = water, outside = 0
 mu_map_hi = np.zeros_like(img_hi, dtype=np.float32).copy()
@@ -205,8 +209,8 @@ vmin, vmax = 0, 1
 fig, ax = plt.subplots(2, 3, figsize=(13, 8))
 
 im0 = ax[0,0].imshow(act, cmap='gray', vmin=vmin, vmax=vmax); ax[0,0].set_title("Truth"); ax[0,0].axis('off'); plt.colorbar(im0, ax=ax[0,0])
-im1 = ax[0,1].imshow(T,   cmap='viridis', aspect='auto');     ax[0,1].set_title("Transmission T"); plt.colorbar(im1, ax=ax[0,1])
-im2 = ax[0,2].imshow(y_rnd, cmap='magma', aspect='auto');     ax[0,2].set_title("Randoms sinogram (true)"); plt.colorbar(im2, ax=ax[0,2])
+im1 = ax[0,1].imshow(y,   cmap='viridis', aspect='auto');     ax[0,1].set_title("Prompts sinogram"); plt.colorbar(im1, ax=ax[0,1])
+im2 = ax[0,2].imshow(y_rnd, cmap='magma', aspect='auto');     ax[0,2].set_title("Randoms sinogram"); plt.colorbar(im2, ax=ax[0,2])
 
 im3 = ax[1,0].imshow(norm_by_mean(recon_noRC), cmap='gray', vmin=vmin, vmax=vmax); ax[1,0].set_title("MLEM w/ AC, NO RC (biased)"); ax[1,0].axis('off'); plt.colorbar(im3, ax=ax[1,0])
 im4 = ax[1,1].imshow(norm_by_mean(recon_RC_true), cmap='gray', vmin=vmin, vmax=vmax); ax[1,1].set_title("MLEM w/ AC + TRUE r"); ax[1,1].axis('off'); plt.colorbar(im4, ax=ax[1,1])
@@ -216,3 +220,17 @@ plt.suptitle(f"Randoms Demo: total={int(y.sum())}, RF={randoms_frac:.0%}, iters=
 plt.tight_layout(); plt.show()
 
 print("Observed randoms fraction in y:", y_rnd.sum()/y.sum())
+
+
+profile_act = line_profile_at_height(norm_by_mean(act),  N/2, 20, 80)
+profile_nonRC = line_profile_at_height(norm_by_mean(recon_noRC), N/2, 20, 80)
+profile_True_RC = line_profile_at_height(norm_by_mean(recon_RC_true),  N/2, 20, 80)
+profile_RC = line_profile_at_height(norm_by_mean(recon_RC_est),  N/2, 20, 80)
+
+plt.plot(profile_act, label='ground truth')
+plt.plot(profile_nonRC, label='non RC')
+plt.plot(profile_RC, label='RC (estimator)')
+plt.ylim(-0.01,0.3)
+
+plt.legend()
+plt.tight_layout(); plt.show()

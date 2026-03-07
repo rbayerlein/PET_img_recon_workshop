@@ -11,18 +11,21 @@ from skimage.data import shepp_logan_phantom
 from skimage.transform import resize, radon, iradon
 from scipy.ndimage import gaussian_filter
 from scatter_models import make_scatter_blur
+from aux import line_profile_at_height
+
 # from scatter_models import make_scatter_tails, make_scatter_iterative_from_image
 
 ### USER PARAMETERS ###
 total_counts   = 50_000_000         # total expected counts in scan
 randoms_frac   = 0.15               # X% randoms fraction
-scatter_frac   = 0.25               # X% scatter fraction
+scatter_frac   = 0.25              # X% scatter fraction
 
 cnt_MC = 1_000_000
-sigma=(2.0, 1.0)                    # sinogram smoothing parameters (radial, angular)
+sigma=(8.0, 5.50)                    # sinogram smoothing parameters (radial, angular)
 
 n_iter = 200
 
+print_img_to_file = True
 #######################
 
 # ----------------------------
@@ -67,7 +70,9 @@ def make_angled_randoms(shape):
 
 # --- create phantom ---
 img_hi = shepp_logan_phantom().astype(np.float32)
-
+offset_value = 1e-3
+sl_offset = np.full((N0, N0), offset_value, np.float32)
+img_hi = img_hi + sl_offset
 # μ-map: inside phantom = water, outside = 0
 mu_map_hi = np.zeros_like(img_hi, dtype=np.float32).copy()
 mu_map_hi[img_hi > 0] = mu_water_cm
@@ -106,9 +111,14 @@ T        = np.exp(-np.clip(sino_mu, 0, None))
 sig_shape = np.clip(sino_act * T, 0, None)
 
 # Allocate counts between signal and randoms and scatters
+if scatter_frac == 0.0:
+    scatter_frac = 0.001
+if randoms_frac == 0.0:
+    randoms_frac = 0.001
+
 sig_counts = total_counts * (1.0 - randoms_frac - scatter_frac)
 rnd_counts = total_counts * randoms_frac
-sct_counts = total_counts * scatter_frac
+sct_counts = (total_counts - rnd_counts) * scatter_frac
 
 # -------- RANDOMS --------
 rnd_shape = make_uniform_randoms(sig_shape.shape)  
@@ -133,7 +143,7 @@ print("Prompt minus delayed:", (y - y_rnd).sum())
 # Randoms estimation (delayed window)
 # ----------------------------
 # Assume a delayed acquisition k times longer than prompt frame
-k = 2.0  # scale factor (longer delayed window → lower variance in estimate)
+k = 2.0  # scale factor (longer delayed window -> lower variance in estimate)
 # In practice, delayed counts ~ Poisson(k * true_randoms); divide by k to estimate r
 y_delayed = np.random.default_rng(3).poisson(k * y_rnd).astype(np.float32)
 r_hat = y_delayed / k  # unbiased estimator of randoms sinogram, noisy
@@ -145,7 +155,8 @@ r_hat = y_delayed / k  # unbiased estimator of randoms sinogram, noisy
 ################################################################
 # assuming the sinograms originate from a Monte Carlo (MC) simulation
 sig_count_MC = cnt_MC * (1.0 - randoms_frac - scatter_frac)
-sct_count_MC = cnt_MC * scatter_frac
+rnd_counts_MC = cnt_MC * randoms_frac
+sct_count_MC = (cnt_MC - rnd_counts_MC) * scatter_frac
 y_sig_MC = poissonize_by_number(sig_shape, sig_count_MC, seed=4)
 y_sct_MC = poissonize_by_number(sct_shape, sct_count_MC, seed=5)
 print("signal counts MC:", y_sig_MC.sum(), "scatter counts MC:", y_sct_MC.sum())
@@ -153,27 +164,78 @@ print("signal counts MC:", y_sig_MC.sum(), "scatter counts MC:", y_sct_MC.sum())
 # ----------------------------
 # Sensitivities
 # ----------------------------
-S_AC  = AT(T.astype(np.float32));  S_AC  = np.where(mask, S_AC,  1e-6)
+S_AC  = AT(T.astype(np.float32));  
+S_AC  = np.where(mask, S_AC,  1e-6)
 
 # ----------------------------
 # MLEM variants
 # ----------------------------
-def mlem(y, n_iter, S, T_sino, r_sino=None, s_sino=None):
-    x = np.full(act.shape, 0.2, np.float32); eps = 1e-3
-    r_sino = 0.0 if r_sino is None else r_sino
-    s_sino = 0.0 if s_sino is None else s_sino
+# def mlem(y, n_iter, S, T_sino, r_sino=None, s_sino=None):
+#     x = np.full(act.shape, 0.2, np.float32); eps = 1e-3
+#     r_sino = 0.0 if r_sino is None else r_sino
+#     s_sino = 0.0 if s_sino is None else s_sino
+#     for _ in range(n_iter):
+#         Ax  = A(x)
+#         lam = T_sino * Ax + r_sino + s_sino + eps
+#         ratio = y / lam
+#         x *= AT(T_sino * ratio) / (S + eps)
+#         x *= mask                                  # keep solution inside FOV
+#         x = np.clip(x, 0, None)
+#     return x
+
+def mlem(y, n_iter, S, T_sino, r_sino=None, s_sino=None, x0=None,
+         sinogram_valid=None, eps=1e-3, upd_clip=(0.2, 5.0)):
+    # x init
+    x = np.full((N, N), 0.2, np.float32) if x0 is None else x0.astype(np.float32)
+
+    # randoms default
+    r = 0.0 if r_sino is None else r_sino.astype(np.float32)
+    s = 0.0 if s_sino is None else s_sino.astype(np.float32)
+    
+    # sinogram validity mask (where the model has support)
+    if sinogram_valid is None:
+        # project an all-ones image inside FOV to find support
+        ones_img = np.where(mask, 1.0, 0.0).astype(np.float32)
+        sino_support = A(ones_img)
+        sinogram_valid = (T_sino > 1e-12) & (sino_support > 1e-12)
+    sinogram_valid = sinogram_valid.astype(bool)
+
+    # floor sensitivity INSIDE FOV; set arbitrary 1 outside to avoid /0
+    S_safe = S.copy().astype(np.float32)
+    S_safe[~mask] = 1.0
+    S_safe = np.maximum(S_safe, eps)
+
     for _ in range(n_iter):
-        Ax  = A(x)
-        lam = T_sino * Ax + r_sino + s_sino + eps
-        ratio = y / lam
-        x *= AT(T_sino * ratio) / (S + eps)
-        x *= mask                                  # keep solution inside FOV
-        x = np.clip(x, 0, None)
+        Ax   = A(np.where(mask, x, 0.0)).astype(np.float32)
+        lam  = T_sino * Ax + r + s
+        lam  = np.maximum(lam, eps)  # floor expected counts
+
+        # ratio only where valid; elsewhere 0 so it doesn't contribute
+        ratio = np.zeros_like(y, dtype=np.float32)
+        ratio[sinogram_valid] = y[sinogram_valid] / lam[sinogram_valid]
+
+        # multiplicative EM update
+        back = AT(T_sino * ratio).astype(np.float32)
+        update = back / S_safe
+
+        # # optional safety clip to prevent numerical blow-ups
+        # if upd_clip is not None:
+        #     lo, hi = upd_clip
+        #     update = np.clip(update, lo, hi)
+
+        x *= update
+        x  = np.where(mask, x, 0.0)
+        x  = np.clip(x, 0, None)
+
+        # (optional) guard against NaN/Inf if something still goes wrong
+        if not np.isfinite(x).all():
+            x = np.nan_to_num(x, nan=0.0, posinf=0.0, neginf=0.0)
+
     return x
 
 # 1) WRONG model (no sc term): shows positive bias
 print('running non-SC recon')
-recon_noSC = mlem(y, n_iter, S_AC, T, r_sino=y_rnd, s_sino=None)
+recon_noSC = mlem(y, n_iter, S_AC, T, r_sino=None, s_sino=None)
 # recon_noSC[recon_noSC>0.0001] = 0.0
 
 # 2) Correct model with TRUE s (best case)
@@ -181,7 +243,7 @@ print('running SC recon with TRUE scatters')
 recon_SC_true = mlem(y, n_iter, S_AC, T, r_sino=y_rnd, s_sino=y_sct)
 
 # 3) Correct model with ESTIMATED s (per sinogram scaling)
-print('running RC recon with ESTIMATED scatters')
+print('running SC recon with ESTIMATED scatters')
 alpha = (y - y_rnd).sum() / np.maximum((y_sig_MC + y_sct_MC).sum(), 1e-8)
 print("Sinogram scale factor:", alpha)
 print("Performing sinogram scaling and smoothing.")
@@ -218,3 +280,18 @@ plt.tight_layout(); plt.show()
 
 print("Observed randoms fraction in y:", y_rnd.sum()/y.sum())
 print("Observed scatter fraction in y:", y_sct_scaled.sum()/y.sum())
+
+if print_img_to_file:
+    norm_by_mean(recon_SC_est).astype(np.float32).tofile("output/recon_SC_est.bin")
+
+profile_act = line_profile_at_height(norm_by_mean(act),  N/2, 20, 80)
+profile_nonSC = line_profile_at_height(norm_by_mean(recon_noSC), N/2, 20, 80)
+profile_True_SC = line_profile_at_height(norm_by_mean(recon_SC_true),  N/2, 20, 80)
+profile_SC = line_profile_at_height(norm_by_mean(recon_SC_est),  N/2, 20, 80)
+
+plt.plot(profile_act, label='ground truth')
+plt.plot(profile_nonSC, label='non SC')
+plt.plot(profile_SC, label='SC (estimator)')
+plt.ylim(-0.01,0.3)
+plt.legend()
+plt.tight_layout(); plt.show()
