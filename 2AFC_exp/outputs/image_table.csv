@@ -1,0 +1,5 @@
+image_id,trial_id,label,role,source,image_path,lesion_center_x,lesion_center_y,lesion_sigma,lesion_amplitude,background_type,background_level,noise_model,noise_std,blur_sigma
+0,0,0,absent,simulated,outputs\images\img_0000.npy,64.0,64.0,3.0,0.0,homogeneous,2.0,gaussian,1.0,1.5
+1,0,1,present,simulated,outputs\images\img_0001.npy,64.0,64.0,3.0,0.5,homogeneous,2.0,gaussian,1.0,1.5
+2,1,0,absent,simulated,outputs\images\img_0002.npy,64.0,64.0,3.0,0.0,homogeneous,2.0,gaussian,1.0,1.5
+3,1,1,present,simulated,outputs\images\img_0003.npy,64.0,64.0,3.0,0.5,homogeneous,2.0,gaussian,1.0,1.5

@@ -1,0 +1,3 @@
+trial_id,left_image_id,right_image_id,present_side,left_label,right_label,reader_choice,correct,reaction_time_sec
+0,1,0,left,1,0,left,1,2.6363758000079542
+1,2,3,right,0,1,right,1,1.837568700007978

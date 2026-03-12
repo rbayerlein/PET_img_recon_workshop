@@ -25,7 +25,7 @@ sigma=(8.0, 5.50)                    # sinogram smoothing parameters (radial, an
 
 n_iter = 200
 
-print_img_to_file = True
+print_img_to_file = False
 #######################
 
 # ----------------------------

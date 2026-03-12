@@ -31,8 +31,8 @@ import pandas as pd
 
 from config import CONFIG
 from dataset import build_images, build_trials
-# from experiment import run_experiment
-# from evaluate import evaluate_reader_performance, summarize_results
+from experiment import run_experiment
+from evaluate import evaluate_reader_performance, summarize_results
 
 
 def ensure_output_dir(output_dir: str) -> Path:
@@ -104,7 +104,6 @@ def main() -> None:
     )
 
     print(f"Prepared {len(images)} images.")
-    return 
 
     # ------------------------------------------------------------------
     # 2) Build 2AFC trials

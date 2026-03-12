@@ -8,7 +8,7 @@ Created on Wed Mar 11 2026
 
 CONFIG = {
     "experiment": {
-        "n_trials": 10,
+        "n_trials": 2,
         "random_seed": 1234,
         "data_mode": "simulate",   # "simulate" or "load"
     },
@@ -16,21 +16,21 @@ CONFIG = {
     "image": {
         "image_size": 128,         # image is image_size x image_size
         "background_type": "homogeneous",
-        "background_level": 5.0,
+        "background_level": 2.0,
         "lesion_shape": "gaussian",
         "lesion_sigma": 3.0,
-        "lesion_amplitude": 1.0,
+        "lesion_amplitude": 0.5,
         "lesion_center_mode": "fixed",   # "fixed" or "random"
         "lesion_center_x": 64,
         "lesion_center_y": 64,
         "noise_model": "gaussian",       # "gaussian" or "poisson"
-        "noise_std": 0.8,
+        "noise_std": 1.0,
         "blur_sigma": 1.5,
     },
 
     "display": {
         "display_size_px": 400,
-        "colormap": "gray",
+        "colormap": "binary",             # "gray", "binary"
         "vmin": 0.0,
         "vmax": None,
         "interpolation": "nearest",
