@@ -7,7 +7,7 @@ from skimage.transform import radon, iradon, resize
 ### USER PARAMETERS ###
 mu_water_cm = 0.096           # linear att. coeff of water at 511 keV [1/cm]
 total_counts = 50_000_000
-num_angles = 120
+num_angles = 180
 #######################
 
 angles = np.linspace(0, 180, num_angles, endpoint=False)
@@ -102,6 +102,9 @@ recon_no_ac = iradon(y,     theta=angles, filter_name='ramp', circle=True,
                      output_size=act.shape[0], preserve_range=True)
 recon_with_ac = iradon(y_ac, theta=angles, filter_name='ramp', circle=True,
                        output_size=act.shape[0], preserve_range=True)
+# non-negativity constraint:
+recon_no_ac[recon_no_ac < 0] = 0
+recon_with_ac[recon_with_ac <0] =0
 
 # Optional: clip for display comparability (without changing raw values)
 # recon_no_ac_disp  = np.clip(recon_no_ac,  vmin, vmax)
@@ -112,6 +115,9 @@ mean_img = act.mean()
 def norm_by_mean(x):
     mean_recon = x.mean()
     return x * (mean_img/mean_recon)
+
+def norm_by_max(x):
+    return x / x.max()
 
 # ----------------------------
 # Plots
@@ -136,11 +142,11 @@ ax[1,0].set_title("Emission sinogram with attenuation")
 ax[1,0].set_xlabel("Angle (index)"); ax[1,0].set_ylabel("Detector bin")
 plt.colorbar(im3, ax=ax[1,0], fraction=0.046, pad=0.04)
 
-im4 = ax[1,1].imshow(norm_by_mean(recon_no_ac), cmap='gray')
+im4 = ax[1,1].imshow(norm_by_max(recon_no_ac), cmap='gray')
 ax[1,1].set_title("Reconstruction WITHOUT AC (FBP)"); ax[1,1].axis('off')
 plt.colorbar(im4, ax=ax[1,1], fraction=0.046, pad=0.04)
 
-im5 = ax[1,2].imshow(norm_by_mean(recon_with_ac), cmap='gray')
+im5 = ax[1,2].imshow(norm_by_max(recon_with_ac), cmap='gray')
 ax[1,2].set_title("Reconstruction WITH AC (pre-corrected FBP)"); ax[1,2].axis('off')
 plt.colorbar(im5, ax=ax[1,2], fraction=0.046, pad=0.04)
 

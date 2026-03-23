@@ -12,10 +12,10 @@ from skimage.transform import resize, radon, iradon
 from aux_functions import line_profile_at_height
 
 ### USER PARAMETERS ###
-total_counts   = 55_000_000         # total expected counts in scan
-randoms_frac   = 0.4               # X% randoms fraction
-n_iter = 200
-
+total_counts   = 10_000_000         # total expected counts in scan
+randoms_frac   = 0.3               # X% randoms fraction
+n_iter = 50
+num_angles = 180
 #######################
 
 # ----------------------------
@@ -27,8 +27,9 @@ FOV_cm = N0 * pix_size_cm0
 
 N = 100
 pix_size_cm = FOV_cm / N
-angles = np.linspace(0, 180, 60, endpoint=False)
-mu_water_cm = 0.096
+angles = np.linspace(0, 180, num_angles, endpoint=False)
+mu_water_cm = 0.01
+
 
 # ----------------------------
 # Helpers
@@ -60,7 +61,7 @@ def make_angled_randoms(shape):
 
 # --- create phantom ---
 img_hi = shepp_logan_phantom().astype(np.float32)
-offset_value = 1e-3
+offset_value = 0
 sl_offset = np.full((N0, N0), offset_value, np.float32)
 img_hi = img_hi + sl_offset
 
@@ -74,15 +75,6 @@ mu_map    = resize(mu_map_hi, (N, N),   order=3, mode='reflect', anti_aliasing=T
 
 img_hi = resize(img_hi, (N0, N0), order=3, mode='reflect', anti_aliasing=True, preserve_range=True)
 act    = resize(img_hi, (N, N),   order=3, mode='reflect', anti_aliasing=True, preserve_range=True).astype(np.float32)
-
-# Mask outside circle to satisfy radon(circle=True)
-H, W = act.shape
-cy, cx = (H-1)/2, (W-1)/2
-r0 = min(H, W)/2 - 1
-yy, xx = np.ogrid[:H, :W]
-mask = ((yy-cy)**2 + (xx-cx)**2) <= r0**2
-act    = np.where(mask, act,    0.0)
-mu_map = np.where(mask, mu_map, 0.0)
 
 # Matched projector/backprojector
 A  = lambda x: radon(x, theta=angles, circle=True, preserve_range=True)
@@ -125,61 +117,40 @@ r_hat = y_delayed / k  # unbiased estimator of randoms sinogram, noisy
 # ----------------------------
 # Sensitivities
 # ----------------------------
-S_AC  = AT(T.astype(np.float32));  S_AC  = np.where(mask, S_AC,  1e-6)
-S_NAC = AT(np.ones_like(y, np.float32)); S_NAC = np.where(mask, S_NAC, 1e-6)
+S_AC  = AT(T.astype(np.float32));  
+# S_AC  = np.where(mask, S_AC,  1e-6); 
+S_AC[S_AC <= 0] = 1e-6
+S_NAC = AT(np.ones_like(y, np.float32)); 
+# S_NAC = np.where(mask, S_NAC, 1e-6); 
+S_NAC[S_NAC <= 0] = 1e-6
+T_NAC = np.ones_like(y, dtype=np.float32)       # transmission image without attenuation
 
 # ----------------------------
 # MLEM variants
 # ----------------------------
-def mlem(y, n_iter, S, T_sino, r_sino=None, x0=None,
-         sinogram_valid=None, eps=1e-3, upd_clip=(0.2, 5.0)):
-    # x init
-    x = np.full((N, N), 0.2, np.float32) if x0 is None else x0.astype(np.float32)
 
-    # randoms default
-    r = 0.0 if r_sino is None else r_sino.astype(np.float32)
+def mlem(y, n_iter=20, s_tmp=S_AC, t_tmp=T, r_sino=None):
+    rand = 0.0 if r_sino is None else r_sino.astype(np.float32)
 
-    # sinogram validity mask (where the model has support)
-    if sinogram_valid is None:
-        # project an all-ones image inside FOV to find support
-        ones_img = np.where(mask, 1.0, 0.0).astype(np.float32)
-        sino_support = A(ones_img)
-        sinogram_valid = (T_sino > 1e-12) & (sino_support > 1e-12)
-    sinogram_valid = sinogram_valid.astype(bool)
-
-    # floor sensitivity INSIDE FOV; set arbitrary 1 outside to avoid /0
-    S_safe = S.copy().astype(np.float32)
-    S_safe[~mask] = 1.0
-    S_safe = np.maximum(S_safe, eps)
-
-    for _ in range(n_iter):
+    x = np.full(act.shape, 1, dtype=np.float32)  # init (non-negative)
+    mask = np.zeros_like(act, dtype=bool)
+    yy, xx = np.ogrid[:act.shape[0], :act.shape[1]]
+    margin = 1
+    r = act.shape[0]/2 - margin
+    mask = (yy - r - margin)**2 + (xx - r- margin)**2 < r**2    # circular FOV
+    eps = 0.0001
+    for k in range(n_iter):
+        # Ax = A(x)                                  # unattenuated projections
         Ax   = A(np.where(mask, x, 0.0)).astype(np.float32)
-        lam  = T_sino * Ax + r
-        lam  = np.maximum(lam, eps)  # floor expected counts
-
-        # ratio only where valid; elsewhere 0 so it doesn't contribute
-        ratio = np.zeros_like(y, dtype=np.float32)
-        ratio[sinogram_valid] = y[sinogram_valid] / lam[sinogram_valid]
-
-        # multiplicative EM update
-        back = AT(T_sino * ratio).astype(np.float32)
-        update = back / S_safe
-
-        # # optional safety clip to prevent numerical blow-ups
-        # if upd_clip is not None:
-        #     lo, hi = upd_clip
-        #     update = np.clip(update, lo, hi)
-
-        x *= update
-        x  = np.where(mask, x, 0.0)
-        x  = np.clip(x, 0, None)
-
-        # (optional) guard against NaN/Inf if something still goes wrong
-        if not np.isfinite(x).all():
-            x = np.nan_to_num(x, nan=0.0, posinf=0.0, neginf=0.0)
-
+        lam = t_tmp * Ax + rand + eps          # expected counts with attenuation and randoms
+        lam[lam==eps] = 1
+        ratio = y / lam                            # y, your measured Poisson data
+        prod_tmp = t_tmp * ratio
+        bproj = AT(prod_tmp) 
+        x *= bproj / (s_tmp + eps)         # attenuated backprojection
+        x *= mask                                  # keep solution inside FOV
+        x = np.clip(x, 0, None)                    # non-negativity
     return x
-
 
 # 1) WRONG model (no randoms term): shows positive bias
 print('running non-RC recon')
@@ -209,9 +180,8 @@ vmin, vmax = 0, 1
 fig, ax = plt.subplots(2, 3, figsize=(13, 8))
 
 im0 = ax[0,0].imshow(act, cmap='gray', vmin=vmin, vmax=vmax); ax[0,0].set_title("Truth"); ax[0,0].axis('off'); plt.colorbar(im0, ax=ax[0,0])
-im1 = ax[0,1].imshow(y,   cmap='viridis', aspect='auto');     ax[0,1].set_title("Prompts sinogram"); plt.colorbar(im1, ax=ax[0,1])
+im1 = ax[0,1].imshow(y,   cmap='viridis', aspect='auto', vmin=vmin);     ax[0,1].set_title("Prompts sinogram"); plt.colorbar(im1, ax=ax[0,1])
 im2 = ax[0,2].imshow(y_rnd, cmap='magma', aspect='auto');     ax[0,2].set_title("Randoms sinogram"); plt.colorbar(im2, ax=ax[0,2])
-
 im3 = ax[1,0].imshow(norm_by_mean(recon_noRC), cmap='gray', vmin=vmin, vmax=vmax); ax[1,0].set_title("MLEM w/ AC, NO RC (biased)"); ax[1,0].axis('off'); plt.colorbar(im3, ax=ax[1,0])
 im4 = ax[1,1].imshow(norm_by_mean(recon_RC_true), cmap='gray', vmin=vmin, vmax=vmax); ax[1,1].set_title("MLEM w/ AC + TRUE r"); ax[1,1].axis('off'); plt.colorbar(im4, ax=ax[1,1])
 im5 = ax[1,2].imshow(norm_by_mean(recon_RC_est), cmap='gray', vmin=vmin, vmax=vmax);  ax[1,2].set_title("MLEM w/ AC + EST. r̂"); ax[1,2].axis('off'); plt.colorbar(im5, ax=ax[1,2])
@@ -221,16 +191,15 @@ plt.tight_layout(); plt.show()
 
 print("Observed randoms fraction in y:", y_rnd.sum()/y.sum())
 
+# profile_act = line_profile_at_height(norm_by_mean(act),  N/2, 20, 80)
+# profile_nonRC = line_profile_at_height(norm_by_mean(recon_noRC), N/2, 20, 80)
+# profile_True_RC = line_profile_at_height(norm_by_mean(recon_RC_true),  N/2, 20, 80)
+# profile_RC = line_profile_at_height(norm_by_mean(recon_RC_est),  N/2, 20, 80)
 
-profile_act = line_profile_at_height(norm_by_mean(act),  N/2, 20, 80)
-profile_nonRC = line_profile_at_height(norm_by_mean(recon_noRC), N/2, 20, 80)
-profile_True_RC = line_profile_at_height(norm_by_mean(recon_RC_true),  N/2, 20, 80)
-profile_RC = line_profile_at_height(norm_by_mean(recon_RC_est),  N/2, 20, 80)
+# plt.plot(profile_act, label='ground truth')
+# plt.plot(profile_nonRC, label='non RC')
+# plt.plot(profile_RC, label='RC (estimator)')
+# plt.ylim(-0.01,0.3)
 
-plt.plot(profile_act, label='ground truth')
-plt.plot(profile_nonRC, label='non RC')
-plt.plot(profile_RC, label='RC (estimator)')
-plt.ylim(-0.01,0.3)
-
-plt.legend()
-plt.tight_layout(); plt.show()
+# plt.legend()
+# plt.tight_layout(); plt.show()

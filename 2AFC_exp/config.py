@@ -8,7 +8,7 @@ Created on Wed Mar 11 2026
 
 CONFIG = {
     "experiment": {
-        "n_trials": 2,
+        "n_trials": 20,
         "random_seed": 1234,
         "data_mode": "simulate",   # "simulate" or "load"
     },

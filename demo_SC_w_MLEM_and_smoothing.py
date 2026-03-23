@@ -12,20 +12,21 @@ from skimage.transform import resize, radon, iradon
 from scipy.ndimage import gaussian_filter
 from scatter_models import make_scatter_blur
 from aux_functions import line_profile_at_height
+from phantoms import make_circular_mask, make_disk_phantom, create_iq_phantom
 
 # from scatter_models import make_scatter_tails, make_scatter_iterative_from_image
 
 ### USER PARAMETERS ###
-total_counts   = 50_000_000         # total expected counts in scan
+total_counts   = 5_000_000         # total expected counts in scan
 randoms_frac   = 0.15               # X% randoms fraction
-scatter_frac   = 0.25              # X% scatter fraction
+scatter_frac   = 0.45              # X% scatter fraction
 
 cnt_MC = 1_000_000
-sigma=(8.0, 5.50)                    # sinogram smoothing parameters (radial, angular)
+sigma=(4.0, 2.50)                    # sinogram smoothing parameters (radial, angular)
 
-n_iter = 200
+n_iter = 100
 
-print_img_to_file = False
+print_img_to_file = True
 #######################
 
 # ----------------------------
@@ -37,8 +38,8 @@ FOV_cm = N0 * pix_size_cm0
 
 N = 100
 pix_size_cm = FOV_cm / N
-angles = np.linspace(0, 180, 60, endpoint=False)
-mu_water_cm = 0.096
+angles = np.linspace(0, 180, 90, endpoint=False)
+mu_water_cm = 0.0096
 
 # ----------------------------
 # Helpers
@@ -69,10 +70,25 @@ def make_angled_randoms(shape):
 # ----------------------------
 
 # --- create phantom ---
-img_hi = shepp_logan_phantom().astype(np.float32)
-offset_value = 1e-3
-sl_offset = np.full((N0, N0), offset_value, np.float32)
-img_hi = img_hi + sl_offset
+# img_hi = shepp_logan_phantom().astype(np.float32)
+# offset_value = 1e-3
+# sl_offset = np.full((N0, N0), offset_value, np.float32)
+# img_hi = img_hi + sl_offset
+
+# alternative phantoms:
+# mask = make_circular_mask(N)
+# act = make_disk_phantom(N)
+# img_hi = np.where(mask, act, 0.0).astype(np.float32)
+
+mask = make_circular_mask(N)
+act, info = create_iq_phantom(N, 
+                              background_value=1.0, 
+                              lesion_to_background_ratio=4.0, 
+                              lesion_diameters_px=(2, 4, 6, 8, 10), 
+                              cold_diameter_px=16, 
+                              smooth_sigma=0.0)
+img_hi = np.where(mask, act, 0.0).astype(np.float32)
+
 # μ-map: inside phantom = water, outside = 0
 mu_map_hi = np.zeros_like(img_hi, dtype=np.float32).copy()
 mu_map_hi[img_hi > 0] = mu_water_cm
@@ -170,67 +186,17 @@ S_AC  = np.where(mask, S_AC,  1e-6)
 # ----------------------------
 # MLEM variants
 # ----------------------------
-# def mlem(y, n_iter, S, T_sino, r_sino=None, s_sino=None):
-#     x = np.full(act.shape, 0.2, np.float32); eps = 1e-3
-#     r_sino = 0.0 if r_sino is None else r_sino
-#     s_sino = 0.0 if s_sino is None else s_sino
-#     for _ in range(n_iter):
-#         Ax  = A(x)
-#         lam = T_sino * Ax + r_sino + s_sino + eps
-#         ratio = y / lam
-#         x *= AT(T_sino * ratio) / (S + eps)
-#         x *= mask                                  # keep solution inside FOV
-#         x = np.clip(x, 0, None)
-#     return x
-
-def mlem(y, n_iter, S, T_sino, r_sino=None, s_sino=None, x0=None,
-         sinogram_valid=None, eps=1e-3, upd_clip=(0.2, 5.0)):
-    # x init
-    x = np.full((N, N), 0.2, np.float32) if x0 is None else x0.astype(np.float32)
-
-    # randoms default
-    r = 0.0 if r_sino is None else r_sino.astype(np.float32)
-    s = 0.0 if s_sino is None else s_sino.astype(np.float32)
-    
-    # sinogram validity mask (where the model has support)
-    if sinogram_valid is None:
-        # project an all-ones image inside FOV to find support
-        ones_img = np.where(mask, 1.0, 0.0).astype(np.float32)
-        sino_support = A(ones_img)
-        sinogram_valid = (T_sino > 1e-12) & (sino_support > 1e-12)
-    sinogram_valid = sinogram_valid.astype(bool)
-
-    # floor sensitivity INSIDE FOV; set arbitrary 1 outside to avoid /0
-    S_safe = S.copy().astype(np.float32)
-    S_safe[~mask] = 1.0
-    S_safe = np.maximum(S_safe, eps)
-
+def mlem(y, n_iter, S, T_sino, r_sino=None, s_sino=None):
+    x = np.full(act.shape, 0.2, np.float32); eps = 1e-3
+    r_sino = 0.0 if r_sino is None else r_sino
+    s_sino = 0.0 if s_sino is None else s_sino
     for _ in range(n_iter):
-        Ax   = A(np.where(mask, x, 0.0)).astype(np.float32)
-        lam  = T_sino * Ax + r + s
-        lam  = np.maximum(lam, eps)  # floor expected counts
-
-        # ratio only where valid; elsewhere 0 so it doesn't contribute
-        ratio = np.zeros_like(y, dtype=np.float32)
-        ratio[sinogram_valid] = y[sinogram_valid] / lam[sinogram_valid]
-
-        # multiplicative EM update
-        back = AT(T_sino * ratio).astype(np.float32)
-        update = back / S_safe
-
-        # # optional safety clip to prevent numerical blow-ups
-        # if upd_clip is not None:
-        #     lo, hi = upd_clip
-        #     update = np.clip(update, lo, hi)
-
-        x *= update
-        x  = np.where(mask, x, 0.0)
-        x  = np.clip(x, 0, None)
-
-        # (optional) guard against NaN/Inf if something still goes wrong
-        if not np.isfinite(x).all():
-            x = np.nan_to_num(x, nan=0.0, posinf=0.0, neginf=0.0)
-
+        Ax  = A(x)
+        lam = T_sino * Ax + r_sino + s_sino + eps
+        ratio = y / lam
+        x *= AT(T_sino * ratio) / (S + eps)
+        x *= mask                                  # keep solution inside FOV
+        x = np.clip(x, 0, None)
     return x
 
 # 1) WRONG model (no sc term): shows positive bias
@@ -264,7 +230,7 @@ def norm_by_mean(x):
 # ----------------------------
 # Display
 # ----------------------------
-vmin, vmax = 0, 1
+vmin, vmax = 0, np.max(act)
 fig, ax = plt.subplots(2, 3, figsize=(13, 8))
 
 im0 = ax[0,0].imshow(act, cmap='gray', vmin=vmin, vmax=vmax); ax[0,0].set_title("Truth"); ax[0,0].axis('off'); plt.colorbar(im0, ax=ax[0,0])
@@ -282,8 +248,8 @@ print("Observed randoms fraction in y:", y_rnd.sum()/y.sum())
 print("Observed scatter fraction in y:", y_sct_scaled.sum()/y.sum())
 
 if print_img_to_file:
-    norm_by_mean(recon_SC_est).astype(np.float32).tofile("output/recon_SC_est.bin")
-
+    np.save("output/recon_SC_est.npy", norm_by_mean(recon_SC_est).astype(np.float32))
+    
 profile_act = line_profile_at_height(norm_by_mean(act),  N/2, 20, 80)
 profile_nonSC = line_profile_at_height(norm_by_mean(recon_noSC), N/2, 20, 80)
 profile_True_SC = line_profile_at_height(norm_by_mean(recon_SC_true),  N/2, 20, 80)
@@ -292,6 +258,6 @@ profile_SC = line_profile_at_height(norm_by_mean(recon_SC_est),  N/2, 20, 80)
 plt.plot(profile_act, label='ground truth')
 plt.plot(profile_nonSC, label='non SC')
 plt.plot(profile_SC, label='SC (estimator)')
-plt.ylim(-0.01,0.3)
+# plt.ylim(-0.01,0.3)
 plt.legend()
 plt.tight_layout(); plt.show()
