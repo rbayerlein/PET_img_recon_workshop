@@ -7,6 +7,7 @@ Created on Wed Sep 10 14:09:34 2025
 
 import numpy as np
 import matplotlib.pyplot as plt
+import os
 from skimage.data import shepp_logan_phantom
 from skimage.transform import resize, radon, iradon
 from scipy.ndimage import gaussian_filter
@@ -24,7 +25,7 @@ scatter_frac   = 0.45              # X% scatter fraction
 cnt_MC = 1_000_000
 sigma=(4.0, 2.50)                    # sinogram smoothing parameters (radial, angular)
 
-n_iter = 100
+n_iter = 10
 
 print_img_to_file = True
 #######################
@@ -246,6 +247,9 @@ plt.tight_layout(); plt.show()
 
 print("Observed randoms fraction in y:", y_rnd.sum()/y.sum())
 print("Observed scatter fraction in y:", y_sct_scaled.sum()/y.sum())
+
+# Create the output directory if it doesn't exist to avoid errors
+os.makedirs('output', exist_ok=True)
 
 if print_img_to_file:
     np.save("output/recon_SC_est.npy", norm_by_mean(recon_SC_est).astype(np.float32))

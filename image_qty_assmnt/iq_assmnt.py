@@ -262,9 +262,10 @@ def print_results(results, truth_ratio=None):
 # ROI editor
 # ============================================================
 class ROIEditor:
-    def __init__(self, img, roi_radius_px):
+    def __init__(self, img, roi_radius_px, cold_roi_radius_px):
         self.img = img
         self.roi_radius_px = float(roi_radius_px)
+        self.cold_roi_radius_px = float(cold_roi_radius_px)
         self.rois = []
         self.current_label = "hot"
 
@@ -274,7 +275,7 @@ class ROIEditor:
         self.ax.set_xlabel("Click to place ROI center")
         self._draw_help_text()
 
-        self.fig.colorbar(self.im, ax=self.ax, fraction=0.046, pad=0.04)
+        # self.fig.colorbar(self.im, ax=self.ax, fraction=0.046, pad=0.04)
 
         self.cid_click = self.fig.canvas.mpl_connect("button_press_event", self.on_click)
         self.cid_key = self.fig.canvas.mpl_connect("key_press_event", self.on_key)
@@ -296,7 +297,7 @@ class ROIEditor:
             " q = finish and close"
         )
         self.ax.text(
-            1.02, 0.98, txt,
+            0.88, 0.95, txt,
             transform=self.ax.transAxes,
             va="top",
             ha="left",
@@ -336,11 +337,15 @@ class ROIEditor:
 
         cx = float(event.xdata)
         cy = float(event.ydata)
-
+        if self.current_label == "cold":
+            this_radius = self.cold_roi_radius_px
+        else:
+            this_radius = self.roi_radius_px
+        
         roi = {
             "label": self.current_label,
             "center": (cy, cx),
-            "radius": self.roi_radius_px
+            "radius": this_radius
         }
         self.rois.append(roi)
         self.redraw()
@@ -393,12 +398,18 @@ def main():
     image_path = input("Enter image path (.npy, .png, .jpg, .tif, ...): ").strip()
     img = load_image(image_path)
 
-    print("Draw ROIs in the figure window. Press 'q' when finished.")
-
     print(f"Loaded image with shape: {img.shape}")
     print(f"Image min/max: {img.min():.6f} / {img.max():.6f}")
 
     radius = float(input("Enter circular ROI radius in pixels/voxels: ").strip())
+    radius_cold = float(input("Enter circular ROI radius in COLD region in pixels/voxels: ").strip())
+
+    ratio_str = input(
+        "Enter ground-truth lesion-to-background ratio "
+        "(e.g. 4 for 4:1), or press Enter to skip CRC: "
+    ).strip()
+    
+    print("Draw ROIs in the figure window. Press 'q' when finished.")
 
     print("\nOpen figure controls:")
     print("  h = hot ROI")
@@ -407,7 +418,7 @@ def main():
     print("  u = undo last ROI")
     print("  q = finish\n")
 
-    editor = ROIEditor(img, roi_radius_px=radius)
+    editor = ROIEditor(img, roi_radius_px=radius, cold_roi_radius_px=radius_cold)
     rois = editor.run()
 
     if len(rois) == 0:
@@ -420,11 +431,6 @@ def main():
 
     save_rois_json(rois, output_json)
     print(f"Saved {len(rois)} ROIs to: {output_json}")
-
-    ratio_str = input(
-        "Enter ground-truth lesion-to-background ratio "
-        "(e.g. 4 for 4:1), or press Enter to skip CRC: "
-    ).strip()
 
     truth_ratio = None
     if ratio_str != "":
