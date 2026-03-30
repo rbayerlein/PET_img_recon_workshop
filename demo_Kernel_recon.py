@@ -327,10 +327,10 @@ recon_mlem_smooth = np.where(mask, recon_mlem_smooth, 0.0)
 # ++++++++++++++++++++++++++++++
 # ALTERNATIVE:
 # Post-smoothed MLEM using Kernel for comparison
-recon_mlem = recon_mlem.reshape(N*N,1)
-recon_mlem_smooth = (K @ recon_mlem).reshape(N,N)
-recon_mlem_smooth = np.where(mask, recon_mlem_smooth, 0.0)
-recon_mlem = recon_mlem.reshape(N,N)
+# recon_mlem = recon_mlem.reshape(N*N,1)
+# recon_mlem_smooth = (K @ recon_mlem).reshape(N,N)
+# recon_mlem_smooth = np.where(mask, recon_mlem_smooth, 0.0)
+# recon_mlem = recon_mlem.reshape(N,N)
 # ++++++++++++++++++++++++++++++
 
 # ============================================================
