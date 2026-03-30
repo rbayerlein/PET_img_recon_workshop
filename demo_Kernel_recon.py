@@ -31,7 +31,7 @@ from skimage.transform import radon, iradon
 N = 64
 angles = np.linspace(0, 180, 90, endpoint=False)
 num_iter = 20
-total_counts = 50_000
+total_counts = 200_000
 
 # Post-smoothing strength for comparison
 sigma_post = 1.0
@@ -324,11 +324,14 @@ recon_kernel, alpha_hat = mlem_kernel(y, num_iter, K, KtS)
 recon_mlem_smooth = gaussian_filter(recon_mlem, sigma=sigma_post)
 recon_mlem_smooth = np.where(mask, recon_mlem_smooth, 0.0)
 
+# ++++++++++++++++++++++++++++++
+# ALTERNATIVE:
 # Post-smoothed MLEM using Kernel for comparison
-# recon_mlem = recon_mlem.reshape(N*N,1)
-# recon_mlem_smooth = (K @ recon_mlem).reshape(N,N)
-# recon_mlem_smooth = np.where(mask, recon_mlem_smooth, 0.0)
-# recon_mlem = recon_mlem.reshape(N,N)
+recon_mlem = recon_mlem.reshape(N*N,1)
+recon_mlem_smooth = (K @ recon_mlem).reshape(N,N)
+recon_mlem_smooth = np.where(mask, recon_mlem_smooth, 0.0)
+recon_mlem = recon_mlem.reshape(N,N)
+# ++++++++++++++++++++++++++++++
 
 # ============================================================
 # Normalize for display

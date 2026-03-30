@@ -18,17 +18,17 @@ import numpy as np
 import matplotlib.pyplot as plt
 from scipy.ndimage import gaussian_filter
 from skimage.transform import radon, iradon
-
+from phantoms import make_edge_phantom
 # ============================================================
 # Parameters
 # ============================================================
 N = 128
 angles = np.linspace(0, 180, 180, endpoint=False)
-total_counts = 500000
+total_counts = 200000
 sigma_psf = 2.0          # stronger PSF blur to make the effect obvious
-iter_no_psf = 30
-iter_psf_mild = 30
-iter_psf_strong = 100
+iter_no_psf = 25
+iter_psf_mild = 25
+iter_psf_strong = 50
 
 # ============================================================
 # Helper functions
@@ -38,26 +38,6 @@ def make_circular_mask(N):
     cy, cx = (N - 1) / 2, (N - 1) / 2
     r = N / 2 - 1
     return ((xx - cx) ** 2 + (yy - cy) ** 2 <= r ** 2)
-
-def make_edge_phantom(N):
-    """Create a phantom with sharp edges to highlight PSF overshoot."""
-    img = np.zeros((N, N), dtype=np.float32)
-    yy, xx = np.ogrid[:N, :N]
-    cy, cx = (N - 1) / 2, (N - 1) / 2
-
-    # Large hot disk
-    mask1 = (xx - cx) ** 2 + (yy - cy) ** 2 <= 28 ** 2
-    img[mask1] = 1.0
-
-    # Small hot disk
-    mask2 = (xx - (cx + 22)) ** 2 + (yy - (cy - 18)) ** 2 <= 5 ** 2
-    img[mask2] = 1.0
-
-    # Small hot disk in warm background
-    mask3 = (xx - cx - 5) ** 2 + (yy - cy - 5) ** 2 <= 5 ** 2
-    img[mask3] = 2.0
-    
-    return img
 
 def poissonize_by_number(sino, total_counts, seed=None):
     s = np.clip(sino, 0, None)
@@ -180,7 +160,7 @@ recon_psf_strong = norm_to_truth(recon_psf_strong)
 # ============================================================
 # Profiles
 # ============================================================
-row = N // 2
+row = N // 2 +2
 prof_truth = act[row, :]
 prof_blur = act_blurred[row, :]
 prof_no_psf = recon_no_psf[row, :]
@@ -190,7 +170,7 @@ prof_psf_strong = recon_psf_strong[row, :]
 # ============================================================
 # Plot images
 # ============================================================
-vmin, vmax = 0.0, 2.2
+vmin, vmax = 0.0, 4.2
 
 fig, ax = plt.subplots(2, 3, figsize=(13, 8))
 

@@ -27,10 +27,10 @@ from phantoms import make_circular_mask, make_disk_phantom
 # ============================================================
 N = 128
 angles = np.linspace(0, 180, 180, endpoint=False)
-num_iter = 25
 total_counts = 500_000
-sigma_psf = 1.5   # PSF width in pixels
+sigma_psf = 2.0   # PSF width in pixels
 
+num_iter = 50
 # ============================================================
 # Helper functions
 # ============================================================
@@ -183,7 +183,7 @@ fig, ax = plt.subplots(2, 3, figsize=(13, 8))
 
 im0 = ax[0, 0].imshow(act, cmap='gray', vmin=vmin, vmax=vmax)
 ax[0, 0].set_title("Truth")
-ax[0, 0].axis('off')
+# ax[0, 0].axis('off')
 plt.colorbar(im0, ax=ax[0, 0], fraction=0.046, pad=0.04)
 
 im1 = ax[0, 1].imshow(act_blurred, cmap='gray', vmin=vmin, vmax=vmax)

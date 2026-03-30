@@ -26,9 +26,9 @@ def make_disk_phantom(N):
     add_disk(cx, cy, 40, 0.2)
 
     # Hot lesions of different size
-    add_disk(cx - 18, cy - 10, 8, 1.0)
-    add_disk(cx + 15, cy - 12, 5, 1.0)
-    add_disk(cx + 5,  cy + 18, 3, 1.0)
+    add_disk(cx - 18, cy - 10, 4, 1.0)
+    add_disk(cx + 15, cy - 12, 3, 1.0)
+    add_disk(cx + 5,  cy + 18, 2, 1.0)
 
     return img
 
@@ -159,3 +159,23 @@ def create_iq_phantom(
     }
 
     return img.astype(np.float32), info
+
+def make_edge_phantom(N):
+    """Create a phantom with sharp edges to highlight PSF overshoot."""
+    img = np.zeros((N, N), dtype=np.float32)
+    yy, xx = np.ogrid[:N, :N]
+    cy, cx = (N - 1) / 2, (N - 1) / 2
+
+    # Large hot disk
+    mask1 = (xx - cx) ** 2 + (yy - cy) ** 2 <= 28 ** 2
+    img[mask1] = 1.0
+
+    # Small hot disk
+    mask2 = (xx - (cx + 22)) ** 2 + (yy - (cy - 18)) ** 2 <= 5 ** 2
+    img[mask2] = 1.0
+
+    # Small hot disk in warm background
+    mask3 = (xx - cx - 5) ** 2 + (yy - cy - 5) ** 2 <= 3 ** 2
+    img[mask3] = 4.0
+    
+    return img
