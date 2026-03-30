@@ -1,10 +1,1 @@
-# PET\_img\_recon\_workshop
-
-Workshop at the 2025 SNNMP meeting in Krakow, PL
-
-
-
-Required dependencies:
-
-pip install numpy matplotlib scikit-image scikit-learn
-
+# PET\_img\_recon\_workshopWorkshop at the 2025 SNNMP meeting in Krakow, PLRequired dependencies:pip install numpy matplotlib scikit-image scikit-learn#### **How to get started**There are typically two options depending on your OS.\# download the code packagewget https://github.com/rbayerlein/PET\_img\_recon\_workshop/archive/refs/heads/master.zip -O repo.zip 	# Linux/macOScurl -L https://github.com/rbayerlein/PET\_img\_recon\_workshop/archive/refs/heads/master.zip -o repo.zip	# Windows Power Shell\# unzipunzip repo.zip			# Linux/macOSExpand-Archive repo.zip		# Windows Power Shellcd PET\_img\_recon\_workshop-master\# create environmentpython -m venv venv		# any OS\# activatesource venv/bin/activate        # Linux/macOSvenv\\Scripts\\activate           # Windows Power Shell\# install packagespip install -r requirements.txt	# any OS\# run first demo script for testingpython demo\_FP.py

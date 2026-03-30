@@ -1,0 +1,2 @@
+n_trials_total,n_trials_completed,n_trials_correct,percent_correct,proportion_correct,mean_reaction_time_sec,median_reaction_time_sec,auc_estimate
+20,20,14,70.0,0.7,2.521466963365674,2.1648155385628343,0.7

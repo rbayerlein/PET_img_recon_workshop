@@ -182,3 +182,5 @@ cython_debug/
 
 # outputs
 output/
+.npy
+2AFC_exp/outputs/*

@@ -12,15 +12,16 @@ from skimage.transform import resize, radon, iradon
 # from scipy.ndimage import gaussian_filter
 
 ### USER PARAMETERS ###
-mu_water_cm = 0.096           # linear att. coeff of water at 511 keV [1/cm]
-num_iter = 200
-total_counts = 100_000_000 # number of desired counts in the sinogram
+mu_water_cm = 0.0096           # linear att. coeff of water at 511 keV [1/mm]
+num_iter = 50
+total_counts = 10_000_000 # number of desired counts in the sinogram
+num_angles = 90
 
 #######################
 
 # ----------------------------
 pad = 16                      # padding for FOV margin
-angles = np.linspace(0, 180, 60, endpoint=False)
+angles = np.linspace(0, 180, num_angles, endpoint=False)
 
 # --- original settings (example) ---
 N0 = 400
@@ -28,7 +29,7 @@ pix_size_cm0 = 0.1        # original pixel size [cm] for 440x440
 FOV_cm = N0 * pix_size_cm0 # keep physical FOV constant
 
 # --- choose downsampled size ---
-N = 100                     # target resolution
+N = 100                  # target resolution
 pix_size_cm = FOV_cm / N    # doubles if N halves → preserves FOV
 
 
@@ -112,10 +113,6 @@ S[S <= 0] = 1e-6
 # MLEM with attenuation
 eps = 1e-8
 
-# Optional additive terms (set to 0 if unused)
-rand = 0.0            # randoms sinogram or array same shape as T
-scat = 0.0            # scatter sinogram or array same shape as T
-
 def mlem(y, n_iter=20, s_tmp=S, t_tmp=T):
     x = np.full(act.shape, 1, dtype=np.float32)  # init (non-negative)
     mask = np.zeros_like(act, dtype=bool)
@@ -124,9 +121,11 @@ def mlem(y, n_iter=20, s_tmp=S, t_tmp=T):
     mask = (yy - r)**2 + (xx - r)**2 <= r**2   # circular FOV
     for k in range(n_iter):
         Ax = A(x)                                  # unattenuated projections
-        lam = t_tmp * Ax + rand + scat + eps           # expected counts with attenuation
+        lam = t_tmp * Ax + eps           # expected counts with attenuation
         ratio = y / lam                            # y, your measured Poisson data
-        x *= AT(t_tmp * ratio) / (s_tmp + eps)         # attenuated backprojection
+        prod_tmp = t_tmp * ratio
+        bproj = AT(prod_tmp) 
+        x *= bproj / (s_tmp + eps)         # attenuated backprojection
         x *= mask                                  # keep solution inside FOV
         x = np.clip(x, 0, None)                    # non-negativity
         # x = gaussian_filter(x, sigma=0.6)
@@ -149,7 +148,7 @@ def norm_by_mean(x):
 # Plots
 # ----------------------------
 # Fixed visualization window in [0,1] to match phantom
-vmin, vmax = 0.0, 1.0
+vmin, vmax = 0.0, None
 
 fig, ax = plt.subplots(2, 3, figsize=(12, 7))
 
@@ -157,9 +156,13 @@ im0 = ax[0,0].imshow(np.clip(act, vmin, vmax), cmap='gray', vmin=vmin, vmax=vmax
 ax[0,0].set_title("Activity (Truth)"); ax[0,0].axis('off')
 plt.colorbar(im0, ax=ax[0,0], fraction=0.046, pad=0.04)
 
-im1 = ax[0,1].imshow(mu_map, cmap='magma')
-ax[0,1].set_title(r"Attenuation map $\mu$ [1/cm]"); ax[0,1].axis('off')
-plt.colorbar(im1, ax=ax[0,1], fraction=0.046, pad=0.04)
+# im1 = ax[0,1].imshow(mu_map, cmap='magma')
+# ax[0,1].set_title(r"Attenuation map $\mu$ [1/cm]"); ax[0,1].axis('off')
+# plt.colorbar(im1, ax=ax[0,1], fraction=0.046, pad=0.04)
+
+im1 = ax[0,1].imshow(y,   cmap='viridis', aspect='auto');     
+ax[0,1].set_title("Prompts sinogram"); 
+plt.colorbar(im1, ax=ax[0,1])
 
 # im2 = ax[0,2].imshow(sino_mu, cmap='gray', aspect='auto')
 # ax[0,2].set_title("forward projected μ-map")

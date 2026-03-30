@@ -69,3 +69,4 @@ def line_profile_at_height(img2d, y, x_start=0, x_end=None, method="nearest"):
         return (1.0 - t) * row0 + t * row1
     else:
         raise ValueError("method must be 'nearest' or 'linear'")
+ 

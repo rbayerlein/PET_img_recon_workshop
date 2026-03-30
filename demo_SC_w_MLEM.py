@@ -11,17 +11,18 @@ from skimage.data import shepp_logan_phantom
 from skimage.transform import resize, radon, iradon
 from scatter_models import make_scatter_blur
 from aux_functions import line_profile_at_height
+from phantoms import make_circular_mask, make_disk_phantom, create_iq_phantom
 
 ### USER PARAMETERS ###
-total_counts   = 50_000_000         # total expected counts in scan
+total_counts   = 10_000_000         # total expected counts in scan
 randoms_frac   = 0.15               # X% randoms fraction
-scatter_frac   = 0.25               # X% scatter fraction
+scatter_frac   = 0.45               # X% scatter fraction
 
 cnt_MC = 1_000_000
 
-n_iter = 200
+n_iter = 50
 
-print_img_to_file = True
+print_img_to_file = False
 #######################
 
 # ----------------------------
@@ -33,8 +34,8 @@ FOV_cm = N0 * pix_size_cm0
 
 N = 100
 pix_size_cm = FOV_cm / N
-angles = np.linspace(0, 180, 60, endpoint=False)
-mu_water_cm = 0.096
+angles = np.linspace(0, 180, 90, endpoint=False)
+mu_water_cm = 0.01
 
 
 # ----------------------------
@@ -67,9 +68,23 @@ def make_angled_randoms(shape):
 
 # --- create phantom ---
 img_hi = shepp_logan_phantom().astype(np.float32)
-offset_value = 1e-3
+offset_value = 0
 sl_offset = np.full((N0, N0), offset_value, np.float32)
 img_hi = img_hi + sl_offset
+# alternative phantoms:
+# mask = make_circular_mask(N)
+# act = make_disk_phantom(N)
+# img_hi = np.where(mask, act, 0.0).astype(np.float32)
+
+mask = make_circular_mask(N)
+act, info = create_iq_phantom(N, 
+                              background_value=1.0, 
+                              lesion_to_background_ratio=4.0, 
+                              lesion_diameters_px=(2, 4, 6, 8, 10), 
+                              cold_diameter_px=16, 
+                              smooth_sigma=0.0)
+img_hi = np.where(mask, act, 0.0).astype(np.float32)
+
 # μ-map: inside phantom = water, outside = 0
 mu_map_hi = np.zeros_like(img_hi, dtype=np.float32).copy()
 mu_map_hi[img_hi > 0] = mu_water_cm
@@ -161,7 +176,8 @@ S_AC  = AT(T.astype(np.float32));  S_AC  = np.where(mask, S_AC,  1e-6)
 # MLEM variants
 # ----------------------------
 def mlem(y, n_iter, S, T_sino, r_sino=None, s_sino=None):
-    x = np.full(act.shape, 0.2, np.float32); eps = 1e-3
+    x = np.full(act.shape, 0.2, np.float32); 
+    eps = 1e-3
     r_sino = 0.0 if r_sino is None else r_sino
     s_sino = 0.0 if s_sino is None else s_sino
     for _ in range(n_iter):
@@ -199,7 +215,7 @@ def norm_by_mean(x):
 # ----------------------------
 # Display
 # ----------------------------
-vmin, vmax = 0, 1
+vmin, vmax = 0, np.max(act)
 fig, ax = plt.subplots(2, 3, figsize=(13, 8))
 
 im0 = ax[0,0].imshow(act, cmap='gray', vmin=vmin, vmax=vmax); ax[0,0].set_title("Truth"); ax[0,0].axis('off'); plt.colorbar(im0, ax=ax[0,0])
@@ -227,7 +243,7 @@ profile_SC = line_profile_at_height(norm_by_mean(recon_SC_est),  N/2, 20, 80)
 plt.plot(profile_act, label='ground truth')
 plt.plot(profile_nonSC, label='non SC')
 plt.plot(profile_SC, label='SC (estimator)')
-plt.ylim(-0.01,0.3)
+# plt.ylim(-0.01,0.3)
 
 plt.legend()
 plt.tight_layout(); plt.show()
