@@ -18,14 +18,14 @@ from phantoms import make_circular_mask, make_disk_phantom, create_iq_phantom
 # from scatter_models import make_scatter_tails, make_scatter_iterative_from_image
 
 ### USER PARAMETERS ###
-total_counts   = 5_000_000         # total expected counts in scan
+total_counts   = 25_000_000         # total expected counts in scan
 randoms_frac   = 0.15               # X% randoms fraction
-scatter_frac   = 0.45              # X% scatter fraction
+scatter_frac   = 0.35              # X% scatter fraction
 
-cnt_MC = 1_000_000
+cnt_MC = 2_000_000
 sigma=(4.0, 2.50)                    # sinogram smoothing parameters (radial, angular)
 
-n_iter = 10
+n_iter = 100
 
 print_img_to_file = True
 #######################
@@ -70,25 +70,28 @@ def make_angled_randoms(shape):
 # Phantom & μ
 # ----------------------------
 
+
 # --- create phantom ---
-# img_hi = shepp_logan_phantom().astype(np.float32)
-# offset_value = 1e-3
-# sl_offset = np.full((N0, N0), offset_value, np.float32)
-# img_hi = img_hi + sl_offset
+img_hi = shepp_logan_phantom().astype(np.float32)
+offset_value = 0
+sl_offset = np.full((N0, N0), offset_value, np.float32)
+img_hi = img_hi + sl_offset
 
 # alternative phantoms:
+# OPTION ONE
 # mask = make_circular_mask(N)
 # act = make_disk_phantom(N)
 # img_hi = np.where(mask, act, 0.0).astype(np.float32)
 
-mask = make_circular_mask(N)
-act, info = create_iq_phantom(N, 
-                              background_value=1.0, 
-                              lesion_to_background_ratio=4.0, 
-                              lesion_diameters_px=(2, 4, 6, 8, 10), 
-                              cold_diameter_px=16, 
-                              smooth_sigma=0.0)
-img_hi = np.where(mask, act, 0.0).astype(np.float32)
+# OPTION TWO
+# mask = make_circular_mask(N)
+# act, info = create_iq_phantom(N, 
+#                               background_value=1.0, 
+#                               lesion_to_background_ratio=4.0, 
+#                               lesion_diameters_px=(2, 4, 6, 8, 10), 
+#                               cold_diameter_px=16, 
+#                               smooth_sigma=0.0)
+# img_hi = np.where(mask, act, 0.0).astype(np.float32)
 
 # μ-map: inside phantom = water, outside = 0
 mu_map_hi = np.zeros_like(img_hi, dtype=np.float32).copy()
@@ -254,6 +257,8 @@ os.makedirs('output', exist_ok=True)
 if print_img_to_file:
     np.save("output/recon_SC_est.npy", norm_by_mean(recon_SC_est).astype(np.float32))
     
+fig, ax = plt.subplots(1, 1, figsize=(13, 8))
+
 profile_act = line_profile_at_height(norm_by_mean(act),  N/2, 20, 80)
 profile_nonSC = line_profile_at_height(norm_by_mean(recon_noSC), N/2, 20, 80)
 profile_True_SC = line_profile_at_height(norm_by_mean(recon_SC_true),  N/2, 20, 80)

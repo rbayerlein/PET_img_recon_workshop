@@ -14,8 +14,6 @@ from skimage.transform import radon, resize
 ### USER PARAMETERS ###
 # Define total number of counts in the sinogram
 sig_counts = 10_000_000
-N_projections = 128
-num_angles = 90
 
 #######################
 
@@ -23,7 +21,8 @@ num_angles = 90
 image = shepp_logan_phantom()
 # image = np.pad(image, pad_width=20, mode='constant')  # Padding for clarity
 N0 = 400
-N_projections = 128
+N_projections = 120
+num_angles = 120
 img_hi = resize(image, (N0, N0), order=3, mode='reflect', anti_aliasing=True, preserve_range=True)
 image = resize(img_hi, (N_projections, N_projections),   order=3, mode='reflect', anti_aliasing=True, preserve_range=True).astype(np.float32)
 

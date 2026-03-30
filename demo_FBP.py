@@ -12,8 +12,8 @@ from skimage.transform import iradon
 from skimage.transform import radon, resize
 
 ### USER PARAMETERS ###
-N_projections = 48
-num_angles = 90
+N_projections = 120
+num_angles = 120
 
 #######################
 

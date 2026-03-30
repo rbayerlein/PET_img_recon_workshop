@@ -12,8 +12,8 @@ from skimage.data import shepp_logan_phantom
 from skimage.transform import radon, resize
 
 ### USER PARAMETERS ###
-N_projections = 128
-num_angles = 180
+N_projections = 120
+num_angles = 120
 
 #######################
 

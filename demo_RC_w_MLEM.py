@@ -9,11 +9,11 @@ import numpy as np
 import matplotlib.pyplot as plt
 from skimage.data import shepp_logan_phantom
 from skimage.transform import resize, radon, iradon
-from aux_functions import line_profile_at_height
+# from aux_functions import line_profile_at_height
 
 ### USER PARAMETERS ###
-total_counts   = 10_000_000         # total expected counts in scan
-randoms_frac   = 0.3               # X% randoms fraction
+total_counts   = 20_000_000         # total expected counts in scan
+randoms_frac   = 0.35               # X% randoms fraction
 n_iter = 50
 num_angles = 180
 #######################

@@ -5,7 +5,7 @@ from skimage.transform import radon, iradon, resize
 
 
 ### USER PARAMETERS ###
-mu_water_cm = 0.096           # linear att. coeff of water at 511 keV [1/cm]
+mu_water_cm = 0.0096           # linear att. coeff of water at 511 keV [1/mm]
 total_counts = 50_000_000
 num_angles = 180
 #######################

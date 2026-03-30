@@ -10,8 +10,8 @@ from skimage.data import shepp_logan_phantom
 from skimage.transform import resize, radon, iradon
 
 ### USER PARAMETERS ###
-num_iter = 100
-total_counts = 15_000_000
+num_iter = 40
+total_counts = 100_000_000
 N_projections = 120                     # target resolution
 
 #######################

@@ -13,8 +13,8 @@ from skimage.transform import resize, radon, iradon
 
 ### USER PARAMETERS ###
 mu_water_cm = 0.0096           # linear att. coeff of water at 511 keV [1/mm]
-num_iter = 50
-total_counts = 10_000_000 # number of desired counts in the sinogram
+num_iter = 30
+total_counts = 50_000_000 # number of desired counts in the sinogram
 num_angles = 90
 
 #######################
