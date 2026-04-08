@@ -10,8 +10,8 @@ from skimage.data import shepp_logan_phantom
 from skimage.transform import resize, radon, iradon
 
 ### USER PARAMETERS ###
-num_iter = 20
-num_subsets = 4
+num_iter = 10
+num_subsets = 10
 
 #######################
 

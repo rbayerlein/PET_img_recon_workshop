@@ -31,7 +31,7 @@ from skimage.transform import radon, iradon
 N = 64
 angles = np.linspace(0, 180, 90, endpoint=False)
 num_iter = 20
-total_counts = 200_000
+total_counts = 50_000
 
 # Post-smoothing strength for comparison
 sigma_post = 1.0

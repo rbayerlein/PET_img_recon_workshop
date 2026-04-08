@@ -27,7 +27,7 @@ from phantoms import make_circular_mask, make_disk_phantom
 # ============================================================
 N = 128
 angles = np.linspace(0, 180, 180, endpoint=False)
-total_counts = 500_000
+total_counts = 200_000
 sigma_psf = 2.0   # PSF width in pixels
 
 num_iter = 50

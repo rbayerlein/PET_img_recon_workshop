@@ -14,11 +14,11 @@ from aux_functions import line_profile_at_height
 # from phantoms import make_circular_mask, make_disk_phantom, create_iq_phantom
 
 ### USER PARAMETERS ###
-total_counts   = 25_000_000         # total expected counts in scan
+total_counts   = 55_000_000         # total expected counts in scan
 randoms_frac   = 0.15               # X% randoms fraction
 scatter_frac   = 0.35               # X% scatter fraction
 
-cnt_MC = 2_000_000
+cnt_MC = 5_500_000
 
 n_iter = 100
 

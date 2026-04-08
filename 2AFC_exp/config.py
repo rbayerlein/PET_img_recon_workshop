@@ -20,19 +20,19 @@ CONFIG = {
         "lesion_shape": "gaussian",
         "lesion_sigma": 3.0,
         "lesion_amplitude": 0.5,
-        "lesion_center_mode": "fixed",   # "fixed" or "random"
+        "lesion_center_mode": "random",   # "fixed" or "random"
         "lesion_center_x": 64,
         "lesion_center_y": 64,
         "noise_model": "gaussian",       # "gaussian" or "poisson"
-        "noise_std": 1.0,
-        "blur_sigma": 1.5,
+        "noise_std": 0.5,
+        "blur_sigma": 1.0,
     },
 
     "display": {
         "display_size_px": 400,
         "colormap": "binary",             # "gray", "binary"
         "vmin": 0.0,
-        "vmax": None,
+        "vmax": 3.0,
         "interpolation": "nearest",
     },
 

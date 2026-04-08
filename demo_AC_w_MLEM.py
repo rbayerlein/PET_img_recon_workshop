@@ -12,8 +12,8 @@ from skimage.transform import resize, radon, iradon
 # from scipy.ndimage import gaussian_filter
 
 ### USER PARAMETERS ###
-mu_water_cm = 0.0096           # linear att. coeff of water at 511 keV [1/mm]
-num_iter = 30
+mu_water_cm = 0.000001           # linear att. coeff of water at 511 keV [1/mm]
+num_iter = 100
 total_counts = 50_000_000 # number of desired counts in the sinogram
 num_angles = 90
 

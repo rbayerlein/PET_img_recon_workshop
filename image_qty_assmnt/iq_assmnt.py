@@ -172,12 +172,12 @@ def compute_metrics(img, rois, truth_ratio=None):
         s["index"] = i + 1
 
         if bg_stats is not None and np.isfinite(bg_stats["mean"]) and bg_stats["mean"] != 0:
-            contrast = (s["mean"] - bg_stats["mean"]) / bg_stats["mean"]
+            contrast = s["mean"] / bg_stats["mean"]
             s["contrast"] = float(contrast)
 
             if truth_ratio is not None:
                 true_contrast = truth_ratio - 1.0
-                s["crc"] = float(contrast / true_contrast) if true_contrast != 0 else np.nan
+                s["crc"] = float((contrast -1)/ (true_contrast)) if true_contrast != 0 else np.nan
             else:
                 s["crc"] = np.nan
 
@@ -425,12 +425,12 @@ def main():
         print("No ROIs were drawn. Exiting.")
         return
 
-    output_json = input("Enter output ROI JSON filename [default: rois.json]: ").strip()
-    if output_json == "":
-        output_json = "rois.json"
+    # output_json = input("Enter output ROI JSON filename [default: rois.json]: ").strip()
+    # if output_json == "":
+    #     output_json = "rois.json"
 
-    save_rois_json(rois, output_json)
-    print(f"Saved {len(rois)} ROIs to: {output_json}")
+    # save_rois_json(rois, output_json)
+    # print(f"Saved {len(rois)} ROIs to: {output_json}")
 
     truth_ratio = None
     if ratio_str != "":

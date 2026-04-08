@@ -10,9 +10,9 @@ from skimage.data import shepp_logan_phantom
 from skimage.transform import resize, radon, iradon
 
 ### USER PARAMETERS ###
-num_iter = 40
-total_counts = 100_000_000
-N_projections = 120                     # target resolution
+num_iter = 60
+total_counts = 10_000_000
+N_projections = 180                     # target resolution
 
 #######################
 
@@ -30,7 +30,7 @@ img = shepp_logan_phantom().astype(np.float32)
 img_hi = resize(img, (N0, N0), order=3, mode='reflect', anti_aliasing=True, preserve_range=True)
 img    = resize(img_hi, (N_projections, N_projections),   order=3, mode='reflect', anti_aliasing=True, preserve_range=True).astype(np.float32)
 
-num_angles = 60
+num_angles = 90
 angles = np.linspace(0, 180, num_angles, endpoint=False)
 
 # Forward model (A x)
